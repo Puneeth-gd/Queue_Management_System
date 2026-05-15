@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Doctor Portal — Manage patient queue, handle emergencies in real-time." />
+  <title>Doctor Portal — MediQueue AI</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    /* ── 3-Column Doctor Layout ── */
+    .doctor-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr 300px;
+      gap: 20px;
+      padding: 20px 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+      min-height: calc(100vh - 64px);
+      align-items: start;
+    }
+
+    /* Left: Queue stepper */
+    .queue-panel {
+      background: var(--bg-card);
+      backdrop-filter: var(--blur-md);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      position: sticky;
+      top: 84px;
+      max-height: calc(100vh - 104px);
+      overflow-y: auto;
+    }
+
+    /* Center: Current patient */
+    .center-panel { display: flex; flex-direction: column; gap: 16px; }
+
+    .current-patient-wrap {
+      background: linear-gradient(135deg, rgba(49,130,206,0.15) 0%, rgba(128,90,213,0.15) 50%, rgba(44,122,123,0.1) 100%);
+      border: 1px solid rgba(99,179,237,0.35);
+      border-radius: var(--radius-xl);
+      padding: 32px;
+      position: relative;
+      overflow: hidden;
+      animation: glow-pulse 4s ease-in-out infinite;
+    }
+    .current-patient-wrap::before {
+      content: '';
+      position: absolute;
+      top: -60px; right: -60px;
+      width: 200px; height: 200px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(99,179,237,0.12) 0%, transparent 70%);
+    }
+    .current-patient-wrap::after {
+      content: '';
+      position: absolute;
+      bottom: -40px; left: -40px;
+      width: 150px; height: 150px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(128,90,213,0.1) 0%, transparent 70%);
+    }
+
+    /* Right: Actions + Alerts */
+    .actions-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: sticky;
+      top: 84px;
+      max-height: calc(100vh - 104px);
+      overflow-y: auto;
+    }
+
+    /* Stats row */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    /* Responsive */
+    @media (max-width: 1100px) {
+      .doctor-layout { grid-template-columns: 240px 1fr 260px; }
+    }
+    @media (max-width: 900px) {
+      .doctor-layout { grid-template-columns: 1fr; }
+      .queue-panel, .actions-panel { position: static; max-height: none; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 480px) {
+      .doctor-layout { padding: 12px; gap: 12px; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* Action buttons grid */
+    .actions-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    /* Doctor Info Card */
+    .doctor-info-card {
+      background: linear-gradient(135deg, rgba(79,209,197,0.12), rgba(128,90,213,0.12));
+      border: 1px solid rgba(79,209,197,0.25);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+    }
+
+    /* Empty state */
+    .empty-patient {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--text-muted);
+    }
+    .empty-patient .empty-icon { font-size: 56px; margin-bottom: 16px; opacity: 0.5; }
+
+    /* Analytics cards */
+    .analytics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .analytics-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-md);
+      padding: 14px;
+    }
+
+    /* Walk-in badge */
+    .walkin-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(246,173,85,0.15);
+      border: 1px solid rgba(246,173,85,0.3);
+      border-radius: var(--radius-full);
+      padding: 3px 10px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--orange-400);
+    }
+
+    /* Mobile tab nav for doctor portal */
+    .mobile-tab-nav {
+      display: none;
+      gap: 4px;
+      background: rgba(255,255,255,0.04);
+      border-radius: var(--radius-lg);
+      padding: 4px;
+      border: 1px solid var(--border-glass);
+      margin: 12px 24px;
+    }
+    @media (max-width: 900px) { .mobile-tab-nav { display: flex; } }
+  </style>
+</head>
+<body>
+  <div class="bg-mesh"></div>
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Navbar -->
+  <nav class="navbar no-print">
+    <a class="navbar-brand" href="index.html">
+      <div class="navbar-logo">🏥</div>
+      <div>
+        <div class="navbar-title">MediQueue <span class="gradient-text">AI</span></div>
+        <div class="navbar-subtitle">Doctor Portal</div>
+      </div>
+    </a>
+    <div class="navbar-actions" style="gap:14px;">
+      <div id="offline-banner" class="offline-banner hidden" style="padding:6px 12px;font-size:12px;">📵 Offline</div>
+      <!-- Doctor status badge in nav -->
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="status-dot status-dot-green" id="nav-status-dot"></span>
+        <span class="text-sm text-secondary hide-mobile" id="nav-status-text">Dr. Meera Sharma</span>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="openModal('status-modal')">⚙️ Status</button>
+      <button class="dark-toggle" onclick="App.toggleDarkMode()"><div class="dark-toggle-thumb">🌙</div></button>
+      <a href="index.html" class="btn btn-ghost btn-sm">← Home</a>
+    </div>
+  </nav>
+
+  <!-- Stats Row (full width) -->
+  <div style="padding:16px 24px 0;max-width:1400px;margin:0 auto;position:relative;z-index:1;">
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-value gradient-text" id="stat-total">6</div>
+        <div class="stat-label">Total in Queue</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color:var(--blue-400);" id="stat-waiting">5</div>
+        <div class="stat-label">Waiting</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color:var(--red-400);" id="stat-urgent">1</div>
+        <div class="stat-label">Urgent</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color:var(--green-400);" id="stat-done">0</div>
+        <div class="stat-label">Completed</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main 3-column layout -->
+  <div class="doctor-layout">
+
+    <!-- ═══ LEFT: Queue Stepper ═══ -->
+    <aside class="queue-panel">
+      <div class="section-header" style="margin-bottom:16px;">
+        <h2 class="section-title">🗂️ Queue</h2>
+        <div class="live-indicator"><div class="live-dot"></div> LIVE</div>
+      </div>
+
+      <div class="stepper" id="queue-stepper">
+        <!-- Rendered by doctor.js -->
+        <div class="shimmer" style="height:60px;margin-bottom:12px;border-radius:var(--radius-md);"></div>
+        <div class="shimmer" style="height:60px;margin-bottom:12px;border-radius:var(--radius-md);"></div>
+        <div class="shimmer" style="height:60px;border-radius:var(--radius-md);"></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Walk-in quick link -->
+      <button class="btn btn-warning btn-full" onclick="openModal('walkin-modal')" style="margin-top:4px;">
+        🚶 Add Walk-in Patient
+      </button>
+    </aside>
+
+    <!-- ═══ CENTER: Current Patient ═══ -->
+    <main class="center-panel">
+
+      <!-- Doctor Status Header -->
+      <div class="doctor-info-card">
+        <div class="flex flex-between" style="flex-wrap:wrap;gap:12px;">
+          <div class="flex gap-12" style="align-items:center;">
+            <div style="font-size:48px;">👩‍⚕️</div>
+            <div>
+              <div class="font-bold text-lg">Dr. Meera Sharma</div>
+              <div class="text-sm text-muted">Cardiology · City General Hospital · Room 304</div>
+              <div style="margin-top:8px;" id="patient-visible-status">
+                <span class="badge badge-green">🟢 Available</span>
+                <span class="text-micro text-muted" style="margin-left:6px;">Visible to all patients</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+            <div id="doctor-status-badge" class="doctor-status doctor-status-available">
+              <span class="status-dot status-dot-green"></span> Available
+            </div>
+            <div class="text-micro text-muted">Today: <strong style="color:var(--text-primary);">Apr 1, 2026</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Current Patient Card -->
+      <div class="current-patient-wrap">
+        <div style="position:relative;z-index:1;">
+          <div class="flex flex-between" style="margin-bottom:20px;">
+            <h2 class="section-title" style="font-size:18px;">🩺 Current Patient</h2>
+            <div id="timer-badge" class="badge badge-blue">
+              <span class="live-dot" style="width:5px;height:5px;"></span> In Session
+            </div>
+          </div>
+          <div id="current-patient-card">
+            <!-- Rendered by doctor.js -->
+            <div class="empty-patient">
+              <div class="empty-icon">🩺</div>
+              <div class="text-lg font-bold" style="margin-bottom:8px;">No Active Consultation</div>
+              <p class="text-sm">Click <strong>Start Consultation</strong> to begin with the next patient.</p>
+              <button class="btn btn-primary btn-lg" style="margin-top:20px;" onclick="startConsultation()">▶️ Start Consultation</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Analytics Section -->
+      <div class="glass-card-static p-24">
+        <h3 class="section-title" style="margin-bottom:16px;">📈 Today's Performance</h3>
+        <div class="analytics-grid">
+          <div class="analytics-card">
+            <div style="font-size:22px;font-weight:800;color:var(--green-400);">12</div>
+            <div class="text-micro text-muted">Patients Seen</div>
+          </div>
+          <div class="analytics-card">
+            <div style="font-size:22px;font-weight:800;color:var(--blue-400);">8.4 min</div>
+            <div class="text-micro text-muted">Avg Consult Time</div>
+          </div>
+          <div class="analytics-card">
+            <div style="font-size:22px;font-weight:800;color:var(--purple-400);">98%</div>
+            <div class="text-micro text-muted">Satisfaction</div>
+          </div>
+          <div class="analytics-card">
+            <div style="font-size:22px;font-weight:800;color:var(--orange-400);">2</div>
+            <div class="text-micro text-muted">Walk-ins Today</div>
+          </div>
+        </div>
+        <div style="margin-top:16px;">
+          <div class="flex flex-between" style="margin-bottom:6px;">
+            <span class="text-sm text-muted">Daily Target</span>
+            <span class="text-sm font-semibold">12 / 20</span>
+          </div>
+          <div class="progress-bar-track" style="height:8px;">
+            <div class="progress-bar-fill" style="width:60%;"></div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- ═══ RIGHT: Actions + Alerts ═══ -->
+    <aside class="actions-panel">
+
+      <!-- Alerts Panel -->
+      <div class="glass-card-static p-20">
+        <h3 class="section-title" style="margin-bottom:12px;">🔔 Alerts</h3>
+        <div id="alerts-panel">
+          <div class="alert-banner alert-success">✅ Queue running smoothly. No alerts.</div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="glass-card-static p-20">
+        <h3 class="section-title" style="margin-bottom:14px;">⚡ Quick Actions</h3>
+        <div class="actions-grid">
+          <button class="btn btn-primary btn-full" onclick="startConsultation()" id="start-btn">
+            ▶️ Start
+          </button>
+          <button class="btn btn-success btn-full" onclick="Doctor.completeConsultation()">
+            ✅ Complete
+          </button>
+          <button class="btn btn-ghost btn-full" onclick="Doctor.callNextPatient()">
+            ⏭️ Call Next
+          </button>
+          <button class="btn btn-ghost btn-full" onclick="openModal('walkin-modal')">
+            🚶 Walk-in
+          </button>
+          <button class="btn btn-danger btn-full" style="grid-column:span 2;" onclick="openModal('emergency-modal')">
+            🚨 Mark Emergency
+          </button>
+        </div>
+      </div>
+
+      <!-- Doctor Status Switcher -->
+      <div class="glass-card-static p-20">
+        <h3 class="section-title" style="margin-bottom:12px;">🔄 Set Status</h3>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button class="btn btn-ghost btn-full" onclick="setDoctorStatus('available')" style="justify-content:flex-start;gap:10px;">
+            <span class="status-dot status-dot-green"></span> Available
+          </button>
+          <button class="btn btn-ghost btn-full" onclick="setDoctorStatus('busy')" style="justify-content:flex-start;gap:10px;">
+            <span class="status-dot status-dot-blue"></span> In Consultation
+          </button>
+          <button class="btn btn-ghost btn-full" onclick="setDoctorStatus('emergency')" style="justify-content:flex-start;gap:10px;">
+            <span class="status-dot status-dot-red"></span> Emergency
+          </button>
+          <button class="btn btn-ghost btn-full" onclick="setDoctorStatus('offline')" style="justify-content:flex-start;gap:10px;">
+            <span class="status-dot status-dot-gray"></span> Go Offline
+          </button>
+        </div>
+      </div>
+
+      <!-- Voice Announcement Placeholder -->
+      <div class="glass-card-static p-20">
+        <h3 class="section-title" style="margin-bottom:12px;">📢 Announcements</h3>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button class="btn btn-ghost btn-full" onclick="announce('next')" style="font-size:12px;justify-content:flex-start;">
+            🔊 Call Next Patient (Voice)
+          </button>
+          <button class="btn btn-ghost btn-full" onclick="announce('delay')" style="font-size:12px;justify-content:flex-start;">
+            🔊 Announce Delay
+          </button>
+          <button class="btn btn-ghost btn-full" onclick="announce('emergency')" style="font-size:12px;justify-content:flex-start;">
+            🔊 Announce Emergency
+          </button>
+        </div>
+        <div class="text-micro text-muted" style="margin-top:10px;padding:8px;background:rgba(255,255,255,0.03);border-radius:var(--radius-sm);">
+          💡 Announcements are broadcast to waiting lounge speakers and patient apps simultaneously.
+        </div>
+      </div>
+
+    </aside>
+  </div>
+
+  <!-- ══════ MODALS ══════ -->
+
+  <!-- Emergency Modal -->
+  <div class="modal-overlay" id="emergency-modal" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">🚨 Trigger Emergency</h2>
+        <button class="modal-close" onclick="closeModal('emergency-modal')">✕</button>
+      </div>
+      <div class="alert-banner alert-emergency" style="margin-bottom:20px;">
+        ⚠️ This will <strong>pause the queue</strong> and notify all waiting patients immediately.
+      </div>
+      <div class="form-group" style="margin-bottom:16px;">
+        <label class="form-label">Emergency Type</label>
+        <select class="form-select" id="emergency-type">
+          <option>🚑 Critical patient surgery</option>
+          <option>⚡ Medical emergency — doctor assistance</option>
+          <option>🏥 Equipment failure — brief delay</option>
+          <option>🩸 Trauma patient arrived</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:20px;">
+        <label class="form-label">Estimated Delay (minutes)</label>
+        <input class="form-input" type="number" value="30" min="5" max="180" id="emergency-delay" />
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-danger btn-full" onclick="triggerEmergency()">🚨 Confirm Emergency</button>
+        <button class="btn btn-ghost btn-full" onclick="closeModal('emergency-modal')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Walk-in Modal -->
+  <div class="modal-overlay" id="walkin-modal" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">🚶 Add Walk-in Patient</h2>
+        <button class="modal-close" onclick="closeModal('walkin-modal')">✕</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div class="form-group">
+          <label class="form-label">Patient Name</label>
+          <input class="form-input" type="text" id="walkin-name" placeholder="Full name" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Age</label>
+          <input class="form-input" type="number" id="walkin-age" placeholder="Age" min="1" max="120" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Chief Complaint</label>
+          <input class="form-input" type="text" id="walkin-complaint" placeholder="Brief reason for visit" />
+        </div>
+        <label class="custom-radio" style="margin-top:4px;" id="urgent-toggle">
+          <input type="checkbox" id="walkin-urgent" />
+          <div>
+            <div class="font-semibold text-sm">⚠️ Mark as Urgent</div>
+            <div class="text-micro text-muted">Patient will be moved to front of queue</div>
+          </div>
+        </label>
+        <div class="flex gap-8" style="margin-top:4px;">
+          <button class="btn btn-primary btn-full" onclick="addWalkIn()">✅ Add to Queue</button>
+          <button class="btn btn-ghost btn-full" onclick="closeModal('walkin-modal')">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status Modal -->
+  <div class="modal-overlay" id="status-modal" style="display:none;">
+    <div class="modal-content" style="max-width:380px;">
+      <div class="modal-header">
+        <h2 class="modal-title">⚙️ Update Your Status</h2>
+        <button class="modal-close" onclick="closeModal('status-modal')">✕</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button class="btn btn-ghost btn-full" style="justify-content:flex-start;gap:12px;padding:16px;" onclick="setDoctorStatus('available')">
+          <span class="status-dot status-dot-green"></span>
+          <div style="text-align:left;"><div class="font-semibold">Available</div><div class="text-micro text-muted">Ready to see patients</div></div>
+        </button>
+        <button class="btn btn-ghost btn-full" style="justify-content:flex-start;gap:12px;padding:16px;" onclick="setDoctorStatus('busy')">
+          <span class="status-dot status-dot-blue"></span>
+          <div style="text-align:left;"><div class="font-semibold">Busy / In Consultation</div><div class="text-micro text-muted">Currently with a patient</div></div>
+        </button>
+        <button class="btn btn-ghost btn-full" style="justify-content:flex-start;gap:12px;padding:16px;" onclick="setDoctorStatus('emergency')">
+          <span class="status-dot status-dot-red"></span>
+          <div style="text-align:left;"><div class="font-semibold">Emergency</div><div class="text-micro text-muted">Handling urgent case — queue paused</div></div>
+        </button>
+        <button class="btn btn-ghost btn-full" style="justify-content:flex-start;gap:12px;padding:16px;" onclick="setDoctorStatus('offline')">
+          <span class="status-dot status-dot-gray"></span>
+          <div style="text-align:left;"><div class="font-semibold">Offline</div><div class="text-micro text-muted">Not available right now</div></div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script src="js/doctor.js"></script>
+  <script>
+    function openModal(id) { const m = document.getElementById(id); if(m) m.style.display='flex'; }
+    function closeModal(id) { const m = document.getElementById(id); if(m) m.style.display='none'; }
+
+    function announce(type) {
+      const msgs = {
+        next: '📢 Announcing next patient via waiting lounge speakers…',
+        delay: '📢 Delay announcement sent to all patients.',
+        emergency: '📢 Emergency announcement broadcast.',
+      };
+      App.toast('Announcement', msgs[type] || 'Announcement sent.', 'info');
+    }
+  </script>
+</body>
+</html>

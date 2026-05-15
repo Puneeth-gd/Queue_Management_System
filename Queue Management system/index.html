@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="AI-Based Hospital Queue Management System — Smarter, Faster, Fairer healthcare access." />
+  <title>MediQueue AI — Login</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .hero { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; position: relative; z-index: 1; text-align: center; }
+    .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(99,179,237,0.1); border: 1px solid rgba(99,179,237,0.3); border-radius: 999px; padding: 6px 16px; font-size: 12px; font-weight: 700; color: var(--blue-400); margin-bottom: 28px; letter-spacing: 1px; text-transform: uppercase; }
+    .hero-title { font-size: clamp(36px, 7vw, 72px); font-weight: 900; line-height: 1.05; letter-spacing: -2px; margin-bottom: 20px; }
+    .hero-subtitle { font-size: clamp(14px, 2.5vw, 18px); color: var(--text-secondary); max-width: 560px; margin: 0 auto 40px; line-height: 1.7; }
+    .portal-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; max-width: 900px; width: 100%; margin: 0 auto 48px; }
+    .portal-card { padding: 40px 32px; border-radius: var(--radius-xl); text-align: center; cursor: pointer; transition: all var(--transition-spring); text-decoration: none; display: block; position: relative; overflow: hidden; }
+    .portal-card::before { content: ''; position: absolute; inset: 0; opacity: 0; transition: opacity var(--transition-base); }
+    
+    .portal-card.patient { background: linear-gradient(135deg, rgba(49,130,206,0.2) 0%, rgba(128,90,213,0.15) 100%); border: 1px solid rgba(99,179,237,0.3); }
+    .portal-card.patient::before { background: radial-gradient(ellipse at 50% 0%, rgba(99,179,237,0.15), transparent 70%); }
+    
+    .portal-card.doctor { background: linear-gradient(135deg, rgba(79,209,197,0.15) 0%, rgba(128,90,213,0.2) 100%); border: 1px solid rgba(79,209,197,0.3); }
+    .portal-card.doctor::before { background: radial-gradient(ellipse at 50% 0%, rgba(79,209,197,0.15), transparent 70%); }
+
+    .portal-card.admin { background: linear-gradient(135deg, rgba(237,137,54,0.15) 0%, rgba(229,62,62,0.15) 100%); border: 1px solid rgba(237,137,54,0.3); }
+    .portal-card.admin::before { background: radial-gradient(ellipse at 50% 0%, rgba(237,137,54,0.15), transparent 70%); }
+
+    .portal-card:hover { transform: translateY(-8px) scale(1.02); box-shadow: 0 24px 48px rgba(0,0,0,0.4); }
+    .portal-card:hover::before { opacity: 1; }
+    .portal-icon { font-size: 56px; margin-bottom: 16px; animation: float 3s ease-in-out infinite; display: block; }
+    .portal-title { font-size: 24px; font-weight: 800; margin-bottom: 10px; }
+    .portal-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 24px; }
+    
+    .logo-big { width: 72px; height: 72px; border-radius: var(--radius-xl); background: var(--gradient-main); display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 20px; box-shadow: 0 0 40px rgba(99,179,237,0.4), var(--shadow-glow-blue); animation: glow-pulse 3s ease infinite; }
+    .hospitals-strip { display: flex; flex-direction: column; gap: 16px; align-items: center; margin-bottom: 32px; }
+    .hospital-chip { background: rgba(255,255,255,0.04); border: 1px solid var(--border-glass); border-radius: var(--radius-full); padding: 12px 24px; font-size: 14px; color: var(--text-primary); display: flex; align-items: center; gap: 12px; transition: all var(--transition-base); cursor: pointer; }
+    .hospital-chip:hover { background: rgba(99,179,237,0.1); border-color: rgba(99,179,237,0.4); color: var(--blue-400); }
+    
+    .otp-inputs { display: flex; gap: 12px; justify-content: center; margin: 20px 0; }
+    .otp-input { width: 52px; height: 60px; text-align: center; font-size: 24px; font-weight: 700; font-family: 'JetBrains Mono', monospace; background: rgba(255,255,255,0.05); border: 2px solid var(--border-glass); border-radius: var(--radius-md); color: var(--text-primary); outline: none; transition: all var(--transition-base); }
+    .otp-input:focus { border-color: var(--blue-500); box-shadow: 0 0 0 3px rgba(66,153,225,0.15); background: rgba(255,255,255,0.08); }
+
+    /* Language and Contact specific styles */
+    .btn-lang { padding: 4px 12px; border-radius: 20px; border: 1px solid var(--border-glass); background: rgba(255,255,255,0.05); color: var(--text-primary); font-size: 12px; cursor: pointer; margin-right: 8px;}
+    .btn-lang.active { background: var(--blue-500); border-color: var(--blue-400); }
+    .contact-info { margin-left: auto; font-size: 12px; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <div class="bg-mesh"></div>
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Navbar -->
+  <nav class="navbar no-print">
+    <a class="navbar-brand" href="index.html">
+      <div class="navbar-logo">🏥</div>
+      <div>
+        <div class="navbar-title">MediQueue <span class="gradient-text">AI</span></div>
+        <div class="navbar-subtitle">Smart Hospital Queue System</div>
+      </div>
+    </a>
+    <div class="navbar-actions">
+      <div style="display:flex;align-items:center;gap:4px;">
+        <button class="btn-lang active" onclick="setLang('en')">EN</button>
+        <button class="btn-lang" onclick="setLang('hi')">HI</button>
+        <button class="btn-lang" onclick="setLang('kn')">KN</button>
+        <button class="btn-lang" onclick="setLang('te')">TE</button>
+      </div>
+      <button class="dark-toggle" id="dark-toggle-btn" onclick="App.toggleDarkMode()" title="Toggle Theme">
+        <div class="dark-toggle-thumb">🌙</div>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <main class="hero" style="padding-top:20px;">
+    <div style="position:relative;z-index:1;width:100%;max-width:1000px;margin:0 auto;">
+
+      <div class="logo-big">🏥</div>
+      <h1 class="hero-title">
+        <span class="gradient-text" data-i18n="welcome_title">Welcome to MediQueue AI</span>
+      </h1>
+      <p class="hero-subtitle" data-i18n="welcome_sub">Select your portal to login and continue.</p>
+
+      <!-- Portal Cards -->
+      <div class="portal-cards">
+        
+        <!-- Patient Portal -->
+        <div class="portal-card patient" onclick="initLogin('patient')">
+          <span class="portal-icon">👤</span>
+          <h2 class="portal-title" data-i18n="login_patient">Patient Login</h2>
+          <p class="portal-desc">Book appointments, check queue status.</p>
+          <div style="padding: 10px 20px; background: var(--gradient-main); border-radius: var(--radius-md); color: white; font-weight: 700;">Login</div>
+        </div>
+
+        <!-- Doctor Portal -->
+        <div class="portal-card doctor" onclick="initLogin('doctor')">
+          <span class="portal-icon">👩‍⚕️</span>
+          <h2 class="portal-title" data-i18n="login_doctor">Doctor Login</h2>
+          <p class="portal-desc">Manage queue and patients.</p>
+          <div style="padding: 10px 20px; background: linear-gradient(135deg, var(--teal-500), var(--purple-600)); border-radius: var(--radius-md); color: white; font-weight: 700;">Login</div>
+        </div>
+
+        <!-- Admin Portal -->
+        <div class="portal-card admin" onclick="initLogin('admin')">
+          <span class="portal-icon">📊</span>
+          <h2 class="portal-title" data-i18n="login_admin">Admin Login</h2>
+          <p class="portal-desc">View analytics and hospital data.</p>
+          <div style="padding: 10px 20px; background: linear-gradient(135deg, #ed8936, #e53e3e); border-radius: var(--radius-md); color: white; font-weight: 700;">Login</div>
+        </div>
+
+      </div>
+
+      <!-- Hospital Directory & Contacts -->
+      <div class="glass-card-static" style="max-width: 800px; margin: 0 auto; padding: 24px; text-align: left;">
+        <h3 class="section-title" style="margin-bottom: 20px; text-align: center;">🏥 Supported Hospitals & Contacts</h3>
+        <div class="hospitals-strip">
+          <div class="hospital-chip">
+            <span style="font-size: 20px;">🏥</span>
+            <div style="flex: 1;">
+              <strong>City General Hospital</strong><br/>
+              <span class="text-sm text-muted">14 MG Road, Downtown</span>
+            </div>
+            <div style="text-align: right;">
+              <div class="text-sm font-bold text-green">📞 +91 98765 43210</div>
+              <div class="text-micro text-muted">Emergency: 108</div>
+            </div>
+          </div>
+          <div class="hospital-chip">
+            <span style="font-size: 20px;">🏥</span>
+            <div style="flex: 1;">
+              <strong>Apollo Multi-Specialty</strong><br/>
+              <span class="text-sm text-muted">8 Ring Road, Sector 5</span>
+            </div>
+            <div style="text-align: right;">
+              <div class="text-sm font-bold text-green">📞 +91 98765 11111</div>
+              <div class="text-micro text-muted">Emergency: 108</div>
+            </div>
+          </div>
+          <div class="hospital-chip">
+            <span style="font-size: 20px;">🏥</span>
+            <div style="flex: 1;">
+              <strong>Sunrise Medical Center</strong><br/>
+              <span class="text-sm text-muted">22 Park Ave, Midtown</span>
+            </div>
+            <div style="text-align: right;">
+              <div class="text-sm font-bold text-green">📞 +91 88888 22222</div>
+              <div class="text-micro text-muted">Emergency: 108</div>
+            </div>
+          </div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 20px; border-top: 1px solid var(--border-glass); padding-top: 20px;">
+          <strong>📞 24/7 Platform Support:</strong> +91 1800-456-7890 | support@mediqueue.ai
+        </div>
+      </div>
+      
+    </div>
+  </main>
+
+  <!-- Login Modal -->
+  <div class="modal-overlay" id="login-modal" style="display:none;">
+    <div class="modal-content" style="max-width:400px; text-align: center;">
+      <div class="modal-header">
+        <h2 class="modal-title" id="login-title">🔐 Login</h2>
+        <button class="modal-close" onclick="closeModal('login-modal')">✕</button>
+      </div>
+      <p class="text-sm text-muted" style="margin-bottom:20px;">Enter your credentials to continue</p>
+      
+      <div id="login-form">
+        <div class="form-group" style="text-align: left;">
+          <label class="form-label">Username / Phone</label>
+          <input class="form-input" type="text" id="login-user" placeholder="Enter username or phone" />
+        </div>
+        <div class="form-group" style="text-align: left;">
+          <label class="form-label">Password / OTP</label>
+          <input class="form-input" type="password" id="login-pass" placeholder="Enter password or OTP" />
+        </div>
+        
+        <button class="btn btn-primary btn-full btn-lg" style="margin-top: 10px;" onclick="performLogin()">Login</button>
+        <p class="text-micro text-muted" style="margin-top: 15px;">Demo: Use any credentials to log in.</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script src="js/translations.js"></script>
+  <script>
+    let currentRole = '';
+    
+    function initLogin(role) {
+      currentRole = role;
+      document.getElementById('login-title').innerText = `🔐 ${role.charAt(0).toUpperCase() + role.slice(1)} Login`;
+      openModal('login-modal');
+    }
+
+    function performLogin() {
+      App.toast('Verified!', `Redirecting to ${currentRole} portal…`, 'success');
+      setTimeout(() => { 
+        window.location.href = `${currentRole}.html`; 
+      }, 1000);
+    }
+
+    function openModal(id) { const m = document.getElementById(id); if (m) m.style.display = 'flex'; }
+    function closeModal(id) { const m = document.getElementById(id); if (m) m.style.display = 'none'; }
+  </script>
+</body>
+</html>

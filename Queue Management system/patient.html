@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="description" content="Patient Portal — Book appointments, track your live queue, and check-in digitally."/>
+  <title>Patient Portal — MediQueue AI</title>
+  <link rel="stylesheet" href="css/styles.css"/>
+  <style>
+    .main-content{padding:24px;max-width:1100px;margin:0 auto;width:100%;position:relative;z-index:1}
+    .welcome-strip{background:linear-gradient(135deg,rgba(49,130,206,.15),rgba(128,90,213,.1));border:1px solid rgba(99,179,237,.2);border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+    .welcome-avatar{width:52px;height:52px;border-radius:50%;background:var(--gradient-main);display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:var(--shadow-glow-blue);flex-shrink:0}
+    .checkin-card{background:linear-gradient(135deg,rgba(72,187,120,.1),rgba(44,122,123,.1));border:1px solid rgba(72,187,120,.25);border-radius:var(--radius-lg);padding:24px}
+    .dept-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-top:12px}
+    #slot-section{display:none}
+    .warning-multi{background:rgba(245,101,101,.08);border:1px solid rgba(245,101,101,.2);border-radius:var(--radius-md);padding:10px 14px;font-size:12px;color:var(--red-400);display:flex;gap:8px;align-items:center;margin-bottom:12px}
+    .voice-btn{width:56px;height:56px;border-radius:50%;background:var(--gradient-main);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:var(--shadow-glow-blue);transition:all var(--transition-spring)}
+    .voice-btn:hover{transform:scale(1.1)}
+    .voice-btn.listening{animation:urgentPulse 1s ease infinite}
+    /* SMS Panel */
+    .sms-panel{background:linear-gradient(135deg,rgba(56,178,172,.08),rgba(49,130,206,.06));border:1px solid rgba(56,178,172,.25);border-radius:var(--radius-lg);padding:18px 20px;margin-top:16px}
+    .sms-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+    .sms-toggle-label{font-size:13px;font-weight:600;color:var(--text-primary);display:flex;align-items:center;gap:8px}
+    .toggle-switch{position:relative;width:44px;height:24px;flex-shrink:0}
+    .toggle-switch input{opacity:0;width:0;height:0}
+    .toggle-slider{position:absolute;inset:0;background:rgba(255,255,255,.1);border-radius:24px;cursor:pointer;transition:.3s;border:1px solid rgba(255,255,255,.15)}
+    .toggle-slider::before{content:'';position:absolute;width:18px;height:18px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.3s}
+    .toggle-switch input:checked+.toggle-slider{background:linear-gradient(135deg,#38b2ac,#3182ce);border-color:#38b2ac}
+    .toggle-switch input:checked+.toggle-slider::before{transform:translateX(20px)}
+    .phone-input-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+    .phone-input-row .form-group{flex:1;min-width:200px;margin:0}
+    .phone-valid{border-color:var(--teal-400)!important}
+    .phone-invalid{border-color:var(--red-400)!important}
+    .sms-preview-box{background:rgba(0,0,0,.2);border:1px dashed rgba(255,255,255,.1);border-radius:var(--radius-md);padding:10px 14px;font-size:11px;font-family:monospace;color:var(--text-muted);margin-top:10px;white-space:pre-wrap;word-break:break-word;display:none}
+    .sms-char-count{font-size:10px;color:var(--text-muted);text-align:right;margin-top:4px}
+    .sms-status-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 8px;border-radius:20px;font-weight:600}
+    .sms-status-badge.on{background:rgba(72,187,120,.15);color:var(--green-400)}
+    .sms-status-badge.off{background:rgba(255,255,255,.05);color:var(--text-muted)}
+    @media(max-width:768px){.main-content{padding:16px}}
+  </style>
+</head>
+<body>
+  <div class="bg-mesh"></div>
+  <div id="toast-container" class="toast-container"></div>
+
+  <nav class="navbar no-print">
+    <a class="navbar-brand" href="index.html">
+      <div class="navbar-logo">🏥</div>
+      <div>
+        <div class="navbar-title">MediQueue <span class="gradient-text">AI</span></div>
+        <div class="navbar-subtitle">Patient Portal</div>
+      </div>
+    </a>
+    <div class="navbar-actions">
+      <div id="offline-banner" class="offline-banner hidden" style="padding:6px 12px;font-size:12px;">📵 Offline</div>
+      <div class="live-indicator"><div class="live-dot"></div> LIVE</div>
+      <button class="btn btn-ghost btn-sm hide-mobile" onclick="openModal('voice-modal')">🎙️ Voice</button>
+      <button class="dark-toggle" onclick="App.toggleDarkMode()"><div class="dark-toggle-thumb">🌙</div></button>
+      <a href="index.html" class="btn btn-ghost btn-sm" data-i18n="btn_back_home">← Home</a>
+    </div>
+  </nav>
+
+  <div class="main-content">
+    <div class="welcome-strip">
+      <div class="welcome-avatar">👤</div>
+      <div style="flex:1">
+        <div class="font-bold text-lg" id="patient-welcome-name">Welcome, Patient</div>
+        <div class="text-sm text-muted" id="patient-welcome-details">No Active Bookings</div>
+      </div>
+      <div class="flex gap-8">
+        <span class="badge badge-blue" id="header-status-badge" style="display:none;">Active Booking</span>
+      </div>
+    </div>
+
+    <div id="alerts-container" style="margin-bottom:16px;display:flex;flex-direction:column;gap:8px;"></div>
+
+    <div class="tab-nav" data-group="main" style="margin-bottom:24px;">
+      <button class="tab-btn active" data-group="main" data-target="tab-queue" data-i18n="tab_queue">📍 My Queue</button>
+      <button class="tab-btn" data-group="main" data-target="tab-book" data-i18n="tab_book">📋 Book Slot</button>
+      <button class="tab-btn" data-group="main" data-target="tab-token" data-i18n="tab_token">🎫 My Tokens</button>
+      <button class="tab-btn" data-group="main" data-target="tab-checkin" data-i18n="tab_checkin">✅ Check-In</button>
+    </div>
+
+    <!-- MY QUEUE TAB -->
+    <div class="tab-panel active" id="tab-queue" data-group="main">
+      <div class="grid-3" id="queue-stats" style="margin-bottom:24px;gap:12px;"></div>
+      <div class="glass-card-static p-24" style="margin-bottom:20px;">
+        <div class="flex flex-between" style="margin-bottom:12px;">
+          <h3 class="section-title">📊 Your Queue Position</h3>
+          <div class="live-indicator"><div class="live-dot"></div> Updating</div>
+        </div>
+        <div class="progress-bar-track" style="height:10px;margin-bottom:24px;">
+          <div class="progress-bar-fill" id="queue-progress-fill" style="width:60%;"></div>
+        </div>
+        <div style="overflow-x:auto;padding:8px 0;">
+          <div class="queue-flow" id="queue-flow"></div>
+        </div>
+        <div class="divider"></div>
+        <div class="flex gap-16" style="flex-wrap:wrap;font-size:12px;color:var(--text-muted);">
+          <span>🟢 Active (You)</span><span>⬜ Waiting</span><span>✅ Completed</span><span>👩‍⚕️ Doctor</span>
+        </div>
+      </div>
+      <div class="glass-card-static p-20" style="margin-bottom:20px;">
+        <div class="flex flex-between">
+          <div>
+            <div class="font-bold">Dr. Meera Sharma</div>
+            <div class="text-sm text-muted">Cardiology · City General Hospital</div>
+            <div style="margin-top:8px;"><span class="doctor-status doctor-status-available"><span class="status-dot status-dot-green"></span> Available</span></div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:36px;">👩‍⚕️</div>
+            <div class="text-micro text-muted">⭐ 4.9 · 18 yrs</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOOK SLOT TAB -->
+    <div class="tab-panel" id="tab-book" data-group="main">
+
+      <!-- AI Symptom Recommender -->
+      <div class="glass-card-static p-24" style="margin-bottom:16px; border: 1px solid var(--purple-400);">
+        <h3 class="section-title" style="margin-bottom:12px; color: var(--purple-400);">✨ Ask Gemini AI</h3>
+        <p class="text-sm text-muted" style="margin-bottom:12px;">Not sure which department to visit? Describe your symptoms, and our AI will recommend the right specialist.</p>
+        <div class="form-group flex flex-col gap-8">
+          <textarea class="form-input" id="ai-symptoms-input" rows="2" placeholder="E.g., I have been having severe chest pain and shortness of breath..."></textarea>
+          <button class="btn btn-outline-blue btn-full" id="gemini-btn" onclick="Patient.askGemini()">Ask AI Recommender</button>
+        </div>
+      </div>
+
+      <div class="glass-card-static p-24" style="margin-bottom:16px;">
+        <h3 class="section-title" style="margin-bottom:16px;" data-i18n="step1_hosp">🏥 Step 1 — Select Hospital</h3>
+        <div class="form-group">
+          <label class="form-label">Hospital</label>
+          <select class="form-select" id="hospital-select"><option value="">— Choose a hospital —</option></select>
+        </div>
+      </div>
+      <div class="glass-card-static p-24" style="margin-bottom:16px;">
+        <h3 class="section-title" style="margin-bottom:16px;" data-i18n="step2_dept">🏷️ Step 2 — Select Department</h3>
+        <div class="dept-grid" id="dept-grid"></div>
+      </div>
+      <div class="glass-card-static p-24" style="margin-bottom:16px;">
+        <h3 class="section-title" style="margin-bottom:16px;" data-i18n="step3_doc">👨‍⚕️ Step 3 — Select Doctor</h3>
+        <div id="doctor-list"><p class="text-sm text-muted">Select a department to see doctors.</p></div>
+      </div>
+      <div class="glass-card-static p-24" id="slot-section" style="margin-bottom:16px;">
+        <h3 class="section-title" style="margin-bottom:16px;" data-i18n="step4_slot">🗓️ Step 4 — Choose Date &amp; Time Slot</h3>
+        <div class="form-group" style="margin-bottom: 20px;">
+          <label class="form-label">Select Date</label>
+          <input type="date" class="form-input" id="booking-date" min="2026-04-01" onchange="Patient.renderSlots()" style="max-width: 250px;" />
+        </div>
+        <p class="text-sm text-muted" style="margin-bottom:12px;">
+          <span class="badge badge-red" style="margin-right:6px;">■ Booked</span>
+          <span class="badge badge-blue" style="margin-right:6px;">■ Selected</span>
+          <span class="badge badge-gray">■ Available</span>
+        </p>
+        <div class="slots-grid" id="slots-grid"></div>
+
+        <!-- SMS Alert Panel -->
+        <div class="sms-panel">
+          <div class="sms-toggle-row">
+            <span class="sms-toggle-label">
+              📱 SMS Alerts
+              <span id="sms-global-status" class="sms-status-badge on">● Enabled</span>
+            </span>
+            <label class="toggle-switch" title="Toggle SMS notifications">
+              <input type="checkbox" id="sms-toggle" checked onchange="Patient.onSmsToggle(this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="phone-input-row">
+            <div class="form-group">
+              <label class="form-label" for="patient-phone">📞 Mobile Number <span style="color:var(--red-400)">*</span></label>
+              <input type="tel" class="form-input" id="patient-phone" placeholder="e.g. 9876543210" maxlength="13" oninput="Patient.onPhoneInput(this)"/>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">10-digit Indian number for SMS alerts</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" style="margin-bottom:24px" onclick="Patient.previewSms()">👁️ Preview SMS</button>
+          </div>
+          <div class="sms-preview-box" id="sms-preview-box"></div>
+          <div class="sms-char-count" id="sms-char-count"></div>
+        </div>
+
+        <!-- Payment Panel -->
+        <div class="glass-card-static p-20" style="margin-top:20px; text-align: center; border: 1px solid var(--border-glass); background: rgba(0,0,0,0.1);">
+          <h4 class="font-bold text-md" style="margin-bottom: 8px;">💳 Secure Payment</h4>
+          <p class="text-sm text-muted" style="margin-bottom: 12px;">Scan the QR to pay the consultation fee <strong>(₹500 - ₹1200)</strong> securely.</p>
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=hospital@upi&pn=CityGeneralHospital" alt="Payment QR" style="border-radius: var(--radius-md); border: 2px solid white; margin-bottom: 12px;" />
+          <div class="form-group" style="max-width: 300px; margin: 0 auto;">
+             <input class="form-input" type="text" id="payment-ref" placeholder="Enter Transaction ID (Optional for demo)" />
+          </div>
+        </div>
+
+        <div style="margin-top:16px;">
+          <button class="btn btn-primary btn-full btn-lg" id="confirm-booking-btn" onclick="confirmBooking()" disabled data-i18n="pay_confirm">🎫 Pay &amp; Confirm Booking</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOKEN TAB -->
+    <div class="tab-panel" id="tab-token" data-group="main">
+      <div id="my-tokens-container">
+        <!-- Tokens rendered dynamically here -->
+        <div class="shimmer" style="height:200px;border-radius:var(--radius-md);margin-bottom:20px;"></div>
+      </div>
+      <div class="glass-card-static p-24" style="margin-bottom:16px;">
+        <h3 class="section-title" style="margin-bottom:16px;">📊 Today's Hospital Analytics</h3>
+        <div class="grid-4" style="gap:12px;">
+          <div class="stat-card"><div class="stat-value gradient-text">247</div><div class="stat-label">Total Patients</div><div class="stat-change text-green">↑ 12% today</div></div>
+          <div class="stat-card"><div class="stat-value" style="color:var(--teal-400)">18 min</div><div class="stat-label">Avg Wait</div><div class="stat-change text-green">↓ 3 min better</div></div>
+          <div class="stat-card"><div class="stat-value" style="color:var(--purple-400)">94%</div><div class="stat-label">Satisfaction</div><div class="stat-change text-green">↑ 2%</div></div>
+          <div class="stat-card"><div class="stat-value" style="color:var(--orange-400)">3</div><div class="stat-label">Emergencies</div><div class="stat-change text-muted">All resolved</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHECK-IN TAB -->
+    <div class="tab-panel" id="tab-checkin" data-group="main">
+      <div class="checkin-card" style="margin-bottom:20px;">
+        <div style="text-align:center;margin-bottom:20px;">
+          <div style="font-size:48px;margin-bottom:8px;">📍</div>
+          <h3 class="text-xl font-bold">Arrival Check-In</h3>
+          <p class="text-sm text-muted" style="margin-top:6px;">Your arrival window is <strong>±15 minutes</strong> from slot time.</p>
+        </div>
+        <div class="glass-card-static p-20" style="margin-bottom:16px;">
+          <div class="flex gap-16" style="align-items:center;">
+            <div id="qr-check" class="qr-placeholder"></div>
+            <div>
+              <div class="font-bold">Scan QR at Reception</div>
+              <div class="text-sm text-muted" style="margin-top:4px;">Or press button below for manual check-in</div>
+              <div class="text-micro text-muted" style="margin-top:8px;">📍 Gate 2 · Cardiology Wing · Floor 3</div>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-success btn-full btn-lg" id="checkin-btn" onclick="checkIn()">✅ I HAVE ARRIVED — Check In Now</button>
+        <div id="checkin-status"></div>
+        <div class="alert-banner alert-warning" style="margin-top:16px;">⏰ If not checked in within 15 min of slot, you'll be marked <strong>Skipped</strong>.</div>
+      </div>
+      <div class="glass-card-static p-20">
+        <h3 class="section-title" style="margin-bottom:12px;">🏥 Hospital Directions</h3>
+        <div class="flex gap-12" style="align-items:center;padding:12px;border:1px solid var(--border-glass);border-radius:var(--radius-md);">
+          <span style="font-size:24px;">🏥</span>
+          <div><div class="font-semibold text-sm">City General Hospital</div><div class="text-micro text-muted">14 MG Road · Gate 2 → Cardiology → Floor 3</div></div>
+          <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="window.open('https://maps.google.com/?q=City+General+Hospital', '_blank')">🗺️ Map</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cancel Modal -->
+  <div class="modal-overlay" id="cancel-confirm-modal" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">❌ Cancel Booking</h2>
+        <button class="modal-close" onclick="closeModal('cancel-confirm-modal')">✕</button>
+      </div>
+      <div class="alert-banner alert-warning" style="margin-bottom:20px;">⚠️ Cancelling will release your slot immediately.</div>
+      <p class="text-sm text-secondary" style="margin-bottom:20px;">Token <strong id="cancel-token-label">T-047</strong></p>
+      <div class="flex gap-8">
+        <button class="btn btn-danger btn-full" onclick="confirmCancel()">Yes, Cancel</button>
+        <button class="btn btn-ghost btn-full" onclick="closeModal('cancel-confirm-modal')">Keep Booking</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Voice Modal -->
+  <div class="modal-overlay" id="voice-modal" style="display:none;">
+    <div class="modal-content" style="text-align:center;max-width:360px;">
+      <button class="modal-close" style="position:absolute;right:20px;top:20px;" onclick="closeModal('voice-modal')">✕</button>
+      <div style="font-size:48px;margin-bottom:12px;">🎙️</div>
+      <h2 class="modal-title" style="margin-bottom:8px;">Voice Assistant</h2>
+      <p class="text-sm text-muted" style="margin-bottom:24px;">Say: "Book appointment" · "Queue status" · "Check in"</p>
+      <button class="voice-btn" id="voice-btn" onclick="toggleVoice()" style="margin:0 auto 16px;">🎙️</button>
+      <p id="voice-status" class="text-sm text-muted">Tap mic to start…</p>
+      <p class="text-micro text-muted" style="margin-top:12px;">🌐 English · Hindi · Kannada · Telugu</p>
+    </div>
+  </div>
+
+  <script src="js/translations.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/sms.js"></script>
+  <script src="js/patient.js"></script>
+  <script>
+    function openModal(id){const m=document.getElementById(id);if(m)m.style.display='flex';}
+    function closeModal(id){const m=document.getElementById(id);if(m)m.style.display='none';}
+    
+    let recognition;
+    function toggleVoice(){
+      const btn=document.getElementById('voice-btn'), status=document.getElementById('voice-status');
+      if (btn.classList.contains('listening')) {
+        if(recognition) recognition.stop();
+        return;
+      }
+      
+      const SpeechReg = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechReg) {
+         App.toast('Voice Error', 'Your browser does not support Speech Recognition. Use Chrome/Edge.', 'error');
+         return;
+      }
+      
+      recognition = new SpeechReg();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = function() {
+        btn.classList.add('listening');
+        btn.textContent='🔴';
+        status.textContent='🎙️ Listening... Speak now.';
+      };
+
+      recognition.onresult = function(event) {
+        let transcript = event.results[0][0].transcript.toLowerCase();
+        status.textContent = '✅ Heard: "' + transcript + '"';
+        
+        let found = false;
+        
+        // Match: My Queue, Queue, Status, Cue, Q, Line
+        if (transcript.match(/queue|status|cue|q|line|my queue/i)) {
+           document.querySelector('.tab-btn[data-target="tab-queue"]')?.click();
+           App.toast('Voice', 'Navigating to My Queue', 'success');
+           found = true;
+           
+        // Match: Book Slot, Slot, Book, Appointment, Scheduled
+        } else if (transcript.match(/book|slot|appointment|schedule|reserve/i)) {
+           document.querySelector('.tab-btn[data-target="tab-book"]')?.click();
+           App.toast('Voice', 'Navigating to Book Slot', 'success');
+           found = true;
+           
+        // Match: My Token, Token, Tickets, Ticket, Receipt, Number
+        } else if (transcript.match(/token|ticket|receipt|number|my token/i)) {
+           document.querySelector('.tab-btn[data-target="tab-token"]')?.click();
+           App.toast('Voice', 'Navigating to My Tokens', 'success');
+           found = true;
+           
+        // Match: Check-in, Check in, Arrival, Arrived, Here
+        } else if (transcript.match(/check|arrival|arrived|here/i)) {
+           document.querySelector('.tab-btn[data-target="tab-checkin"]')?.click();
+           App.toast('Voice', 'Navigating to Check-in', 'success');
+           found = true;
+           
+        // Match: Back to Home Page, Home, Back, Start
+        } else if (transcript.match(/home|back|start|return/i)) {
+           window.location.href = 'index.html';
+           found = true;
+        } else {
+           App.toast('Voice', 'Command not recognized: ' + transcript, 'warning');
+        }
+        
+        if (found) setTimeout(() => closeModal('voice-modal'), 1200);
+      };
+
+      recognition.onerror = function(event) {
+        status.textContent = '⚠️ Error: ' + event.error;
+      };
+
+      recognition.onend = function() {
+        btn.classList.remove('listening');
+        btn.textContent='🎙️';
+      };
+
+      recognition.start();
+    }
+    
+    App.generateQR('qr-check');
+  </script>
+</body>
+</html>
